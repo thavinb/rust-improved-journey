@@ -10,7 +10,7 @@ use bio::io::fastq;
 use flate2::bufread::MultiGzDecoder;
 
 use std::io;
-fn decode_reader(file: &str) -> io::Result<BufReader<MultiGzDecoder<BufReader<File>>>>{
+fn decode_reader(file: &String) -> io::Result<BufReader<MultiGzDecoder<BufReader<File>>>>{
     let f = File::open(file)?;
     let buf_reader = BufReader::new(f);
     let gz = MultiGzDecoder::new(buf_reader);
@@ -22,31 +22,35 @@ fn main()  {
     // Deprecate: Postional arguments: filename, bin_size, and box_size
     // Postional arguments: [file1, file2, ..]
     println!("Filename\tTotal_reads\tTotal_bases\tlen(mix-max)\tavg_len\tqual(min-max)\tavg_qual");
-    let args: Vec<String> = env::args().collect();
-    let (tx,rx) = mpsc::channel();
-    thread::spawn(move || {
-        for filename in &args[1..] {
-            let mut fastq_stats = SeqProperty::new(filename.clone());
-
-            let f = decode_reader(filename);
-            let reader = fastq::Reader::from_bufread(f.unwrap()) ;
-            let records = reader.records().map(|record| record.unwrap());
-
-            // Iterate over each record
-            for record in records {
-                let seq_len: usize = record.seq().len();
-                fastq_stats.len_per_reads.push(seq_len as i32);
-                fastq_stats.qual_per_reads.push(average(&record.qual()));
-            }
-
-            //print
-            fastq_stats.summarise();
-            fastq_stats.get_data();
-            tx.send(fastq_stats).unwrap();
-        }
-
-    });
+    let mut args: Vec<String> = env::args().collect();
+    let files = args.splice(1.., Vec::new());
     let mut stat_vec: Vec<SeqProperty> = vec![];
+    let (tx,rx) = mpsc::channel();
+    for filename in files {
+        let tx1 = tx.clone();
+        thread::spawn(move || {
+                let mut fastq_stats = SeqProperty::new(filename.clone());
+
+                // println!("Starting {}",&filename);
+                let f = decode_reader(&filename);
+                let reader = fastq::Reader::from_bufread(f.unwrap()) ;
+                let records = reader.records().map(|record| record.unwrap());
+
+                // Iterate over each record
+                for record in records {
+                    let seq_len: usize = record.seq().len();
+                    fastq_stats.len_per_reads.push(seq_len as i32);
+                    fastq_stats.qual_per_reads.push(average(&record.qual()));
+                }
+
+                // println!("finishig {}",&filename);
+                //print
+                fastq_stats.summarise();
+                fastq_stats.get_data();
+                tx1.send(fastq_stats).unwrap();
+
+        });
+    }
     for recieve in rx {
         stat_vec.push(recieve);
     }
