@@ -5,7 +5,7 @@ pub mod seq_property {
 
     #[derive(Serialize,Debug)]
     pub struct SeqProperty {
-        filename: String,
+        pub filename: String,
         avg_qual: f32,
         min_qual: f32,
         max_qual: f32,

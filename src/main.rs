@@ -26,8 +26,9 @@ fn main()  {
     let files = args.splice(1.., Vec::new());
     let mut stat_vec: Vec<SeqProperty> = vec![];
     let (tx,rx) = mpsc::channel();
+    println!("{:?}",&files);
     for filename in files {
-        let tx1 = tx.clone();
+        let tx_clone = tx.clone();
         thread::spawn(move || {
                 let mut fastq_stats = SeqProperty::new(filename.clone());
 
@@ -47,14 +48,42 @@ fn main()  {
                 //print
                 fastq_stats.summarise();
                 fastq_stats.get_data();
-                tx1.send(fastq_stats).unwrap();
+                tx_clone.send(fastq_stats).unwrap();
 
         });
     }
-    for recieve in rx {
-        stat_vec.push(recieve);
-    }
+    drop(tx);
+    loop {
+    match rx.recv() {
+        Ok(receive) => {
+            // println!("processing: {}",receive.filename);
+            stat_vec.push(receive);
+        }
+        Err(_) => {
+            // Channel is closed, break out of loop
+            break;
+        }
+    }}
+    // loop {
+    // match rx.try_recv() {
+    //     Ok(receive) => {
+    //         println!("processing: {}",receive.filename);
+    //         stat_vec.push(receive);
+    //     }
+    //     Err(mpsc::TryRecvError::Empty) => {
+    //         // Channel is empty, continue main thread
+    //         // println!("Channel is Empty");
+    //         continue;
+    //     }
+    //     Err(mpsc::TryRecvError::Disconnected) => {
+    //         // Channel is closed, break out of loop
+    //         println!("Disconnected!!!");
+    //         break;
+    //     }
+    // }}
+    // println!("Wrapping up...");
     to_json(&stat_vec, String::from("output.json"));
+    // println!("Done!");
 }
 
 fn average(numbers: &[u8]) -> f32 {
