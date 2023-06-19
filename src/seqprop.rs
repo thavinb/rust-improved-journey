@@ -51,7 +51,8 @@ pub mod seq_property {
         }
 
         pub fn get_data (&mut self){
-            println!("{}\t{}\t{}\t{}-{}\t{}\t{}-{}\t{}", 
+            println!(
+                "{}\t{}\t{}\t{}-{}\t{:.2}\t{:.2}-{:.2}\t{:.2}", 
                 self.filename,
                 self.total_reads,
                 self.total_bases,
